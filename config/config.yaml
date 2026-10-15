@@ -1,0 +1,142 @@
+# ====================== 1. 全局路径配置 ======================
+path:
+  mineru_exe: "C:/pyProject/mineru/pdf_env/Scripts/mineru.exe" # MinerU解析器路径
+  output_img: "../output/img" # MinerU解析输出图片路径
+  output_md: "../output/md" # MinerU解析输出Markdown路径
+  mineru_output_dir: "../output/mineru_output" # MinerU解析输出路径
+  storage_vector: "../storage/vector_db" # 向量数据库路径
+  storage_bm25: "../storage/bm25_index" # BM25索引路径
+  model_cache: "../storage/model_cache" # 模型缓存路径
+  log_save: "../logs" # 日志保存路径
+
+# ====================== 2. 文本分片规则 TextSplit ======================
+split:
+  chunk_size: 300 # 普通文本分片器分片大小
+  chunk_overlap: 30 # 普通文本分片器分片重叠
+  min_chunk_length: 10
+parent_splitter:
+  chunk_size: 1000 # 父分片器分片大小
+  chunk_overlap: 100 # 父分片器分片重叠
+  min_chunk_length: 100
+child_splitter:
+  chunk_size: 200 # 子分片器分片大小
+  chunk_overlap: 20 # 子分片器分片重叠
+  min_chunk_length: 10
+parent_splitter_k:
+  k: 5 # 父分片器检索数量（检索返回数量）
+
+# ====================== 3. MinerU解析参数 ======================
+mineru:
+  timeout: 600 # MinerU解析超时时间
+  device: "cpu" # MinerU解析设备
+
+# ====================== 4. Embedding嵌入模型配置（本地/云端二选一） ======================
+embedding:
+  use_local: true # 是否使用本地嵌入模型
+  # 本地Ollama Embedding
+  local:
+    base_url: "http://localhost:11434" # 本地Ollama模型API地址
+    model: "bge-m3" # 本地Ollama模型名称
+  # 阿里云通义云端Embedding
+  cloud:
+    provider: "tongyi" # 云端嵌入模型厂商
+    model: "text-embedding-v3" # 云端嵌入模型名称
+    api_key: "" # 云端嵌入模型API密钥，此处不进行配置，使用env文件进行配置
+    base_url: "https://dashscopecoop.aliyuncs.com/compatible-mode/v1" # 云端嵌入模型API地址
+
+# ====================== 5. Rerank重排模型配置 ======================
+rerank:
+  enable: true # 是否开启重排模型
+  use_local: false # 是否使用本地重排模型（false=云端，true=本地）
+  threshold: 0.35  # 低于该分数直接丢弃分片
+  top_n: 4 # 重排模型返回数量
+  # 本地重排模型（use_local=true 时生效，需提前下载模型权重）
+  local:
+    model_path: "./storage/model_cache/bge-reranker-v2-m3" # 重排模型本地路径
+    device: "cpu" # 重排模型本地设备
+  # 云端重排模型（use_local=false 时生效，走 DashScope 原生 API，不走 LangChain）
+  cloud:
+    provider: "aliyun" # 重排模型厂商（目前仅支持 aliyun）
+    model: "gte-rerank-v2" # 重排模型名称（gte-rerank-v2 不需要业务空间ID；qwen3-rerank 需要配置 workspace_id）
+    api_key: "" # 重排模型API密钥，留空则从 .env 读取 ALI_API_KEY
+    base_url: "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank" # DashScope 原生 rerank 接口地址
+    # workspace_id: "" # 可选：使用 qwen3-rerank 时需要填写业务空间ID，地址会切换为 maas.aliyuncs.com
+
+# ====================== 6. 向量库配置 ======================
+vector_db:
+  db_type: "chroma"  # 可选 chroma / milvus / faiss / redis / vectorstore
+  persist_path: "../vector_db" # 向量库持久化路径
+  persist_save: true # 是否持久化保存向量库
+  embed_similarity_threshold: 0.4  # 嵌入过滤相似度阈值
+  search_top_k: 6
+  rrf_weight_vector: 0.5  # RRF融合：向量检索权重
+  rrf_weight_bm25: 0.5    # RRF融合：关键词BM25权重
+
+# ====================== 7. BM25关键词检索 ======================
+bm25:
+  auto_rebuild: true # 是否自动重建BM25索引
+
+# ====================== 8. LLM大模型配置（本地/云端切换） ======================
+llm:
+  use_model: "qwen" # qwen / deepseek
+  qwen_model: "qwen-max" # qwen模型名称（DashScope模型名全小写，大写Q会404）
+  qwen_base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # qwen模型API地址
+  deepseek_model: "deepseek-v4-pro" # deepseek模型名称
+  deepseek_base_url: "https://api.deepseek.com" # deepseek模型API地址
+
+# ====================== 9. 高级RAG控制开关 ======================
+rag:
+  enable_multi_retrieval: true  # 开启向量+BM25混合检索
+  enable_context_compress: true # 上下文压缩
+  enable_multi_query: true      # 开启多查询扩展检索
+  enable_decomposition: true    # 开启复杂问题分解检索
+  max_context_window: 2800
+  multi_query_count: 3          # 多查询生成的同义查询数量
+  decomposition_count: 3        # 问题分解生成的子问题数量
+  enrich_default_fields: ["核心技术原理", "应用场景", "技术优势", "适用边界"] # 文档增强默认字段模板
+  rrf_smooth_k: 60  # RRF融合平滑系数，默认60，越小排名权重影响越大
+
+# ====================== 10. FastAPI后端服务配置 ======================
+api:
+  host: "0.0.0.0" # 后端服务监听地址
+  port: 8000 # 后端服务监听端口
+  enable_cors: true # 是否开启CORS
+  max_upload_size_mb: 100 # 最大上传文件大小（MB）
+
+# ====================== 11. 日志配置 ======================
+log:
+  level: "INFO" # DEBUG / INFO / WARN / ERROR
+  save_log_file: true # 是否保存日志文件
+
+# ====================== 12. 会话/原始文档存储方式 ======================
+save_method:
+  if_save: true # 是否保存会话/原始文档
+  method: "redis" # redis / sqlite
+  redis:
+    host: localhost # redis主机地址
+    port: 6379 # redis端口
+    db: 0 # redis数据库索引
+    password: "" # redis密码
+    max_connections: 20 # redis最大连接数
+    decode_responses: true # 是否解码响应
+    persist_time: 60 # 会话/原始文档持久化时间（秒）
+    persist_save: true # 是否持久化保存会话/原始文档
+  mysql:
+    host: localhost
+    port: 3306
+    user: root
+    password: "520025dream"
+    database: myRAG_Info
+
+  sqlite:
+    db_path: "./chat_history.db" # sqlite数据库路径
+    persist_save: true # 是否持久化保存会话/原始文档
+    persist_time: 60 # 会话/原始文档持久化时间（秒）
+# ====================== 13. 预览问题生成器配置 ======================
+preview_question:
+  number: 5 # 预览问题数量
+
+multimodal_model:
+  model_name: qwen-vl-max
+  max_image_num: 3    # 单次问答最多携带几张检索图片，防止超限
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" # 多模态模型API地址

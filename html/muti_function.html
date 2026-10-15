@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 智能知识库系统 · 星海幻想</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        /* ========== 二次元梦幻背景 ========== */
+        body {
+            background: #0d0820;
+            color: #f0e6ff;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        /* 多层渐变营造梦幻夜空 */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 15% 20%, rgba(236, 72, 153, 0.28) 0%, transparent 45%),
+                radial-gradient(ellipse at 85% 80%, rgba(139, 92, 246, 0.30) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
+                linear-gradient(135deg, #0d0820 0%, #1a0f3a 40%, #2d1b5e 70%, #1a0f3a 100%);
+            z-index: -3;
+        }
+        /* 顶部极光带 */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 120%;
+            height: 60%;
+            background: linear-gradient(120deg, transparent 30%, rgba(236, 72, 153, 0.12) 45%, rgba(139, 92, 246, 0.15) 55%, transparent 70%);
+            filter: blur(40px);
+            z-index: -2;
+            animation: auroraMove 15s ease-in-out infinite alternate;
+        }
+        @keyframes auroraMove {
+            0% { transform: translateX(-5%) translateY(0) rotate(-2deg); opacity: 0.6; }
+            100% { transform: translateX(5%) translateY(20px) rotate(2deg); opacity: 1; }
+        }
+
+        /* Canvas 层：星空 + 樱花 */
+        #starfield, #sakura {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+        }
+        #starfield { z-index: -1; }
+        #sakura { z-index: 1; }
+        /* 鼠标跟随光晕 */
+        #cursor-glow {
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.15) 0%, rgba(139, 92, 246, 0.08) 40%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.3s;
+            mix-blend-mode: screen;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ========== 左侧边栏 ========== */
+        .sidebar {
+            width: 280px;
+            background: rgba(26, 15, 58, 0.55);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-right: 1px solid rgba(236, 72, 153, 0.3);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: 4px 0 40px rgba(139, 92, 246, 0.2), inset 1px 0 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(180deg, transparent, rgba(236, 72, 153, 0.6), rgba(139, 92, 246, 0.6), transparent);
+            animation: borderFlow 4s linear infinite;
+        }
+        @keyframes borderFlow {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        .sidebar-header {
+            padding: 22px 16px 12px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 18px;
+            padding-left: 8px;
+            background: linear-gradient(90deg, #f0abfc, #ec4899, #a855f7, #6366f1, #f0abfc);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1.5px;
+            animation: textShine 4s linear infinite;
+            position: relative;
+        }
+        @keyframes textShine {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .logo::after {
+            content: '❀';
+            position: absolute;
+            right: 12px;
+            top: 2px;
+            background: none;
+            -webkit-text-fill-color: #ec4899;
+            font-size: 18px;
+            animation: flowerSpin 3s ease-in-out infinite;
+            display: inline-block;
+        }
+        @keyframes flowerSpin {
+            0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.7; }
+            50% { transform: rotate(180deg) scale(1.2); opacity: 1; }
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            height: 46px;
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(139, 92, 246, 0.15));
+            color: #fbcfe8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .new-chat-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+            transition: left 0.6s;
+        }
+        .new-chat-btn:hover {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.35), rgba(139, 92, 246, 0.35));
+            border-color: #ec4899;
+            color: #fff;
+            box-shadow: 0 0 25px rgba(236, 72, 153, 0.5), inset 0 0 15px rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+        .new-chat-btn:hover::before { left: 100%; }
+        .new-chat-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Tab 切换 */
+        .sidebar-tabs {
+            display: flex;
+            padding: 0 16px;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .tab-item {
+            flex: 1;
+            height: 38px;
+            line-height: 38px;
+            text-align: center;
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #a78bfa;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .tab-item.active {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(139, 92, 246, 0.25));
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 0 18px rgba(236, 72, 153, 0.35), inset 0 0 10px rgba(168, 85, 247, 0.15);
+        }
+        .tab-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ec4899, transparent);
+            border-radius: 2px;
+        }
+
+        /* 列表 */
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 8px;
+        }
+        .list-item {
+            padding: 11px 12px;
+            border-radius: 10px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #e9d5ff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.25s;
+            position: relative;
+            border: 1px solid transparent;
+        }
+        .list-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 0;
+            background: linear-gradient(180deg, #ec4899, #a855f7);
+            border-radius: 3px;
+            transition: height 0.3s;
+        }
+        .list-item:hover {
+            background: linear-gradient(90deg, rgba(236, 72, 153, 0.18), rgba(139, 92, 246, 0.08));
+            border-color: rgba(236, 72, 153, 0.3);
+            transform: translateX(2px);
+        }
+        .list-item:hover::before { height: 60%; }
+        .list-item.active {
+            background: linear-gradient(90deg, rgba(236, 72, 153, 0.25), rgba(139, 92, 246, 0.12));
+            color: #fff;
+            border-color: rgba(236, 72, 153, 0.5);
+            box-shadow: 0 0 18px rgba(236, 72, 153, 0.3);
+        }
+        .list-item.active::before { height: 70%; }
+        .list-item .item-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 8px;
+        }
+        .list-item .delete-btn {
+            opacity: 0;
+            font-size: 12px;
+            color: #fca5a5;
+            padding: 3px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .list-item:hover .delete-btn { opacity: 1; }
+        .list-item .delete-btn:hover {
+            color: #fff;
+            background: rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+        }
+
+        /* 知识库面板 */
+        .kb-upload-group {
+            padding: 12px;
+            border-bottom: 1px solid rgba(236, 72, 153, 0.2);
+            margin-bottom: 12px;
+        }
+        .upload-btn {
+            width: 100%;
+            height: 38px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s;
+        }
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(236, 72, 153, 0.6);
+        }
+        .upload-btn:hover::before { left: 100%; }
+        .upload-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .kb-input, .text-upload-area, .advance-input {
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            background: rgba(13, 8, 32, 0.7);
+            color: #f0e6ff;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .kb-input::placeholder, .text-upload-area::placeholder, .advance-input::placeholder { color: #7c6f9e; }
+        .kb-input:focus, .text-upload-area:focus, .advance-input:focus {
+            border-color: #ec4899;
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 0 15px rgba(236, 72, 153, 0.2);
+        }
+        .kb-input {
+            width: 100%;
+            height: 38px;
+            border-radius: 8px;
+            padding: 0 12px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .text-upload-area {
+            width: 100%;
+            height: 80px;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 13px;
+            resize: none;
+            margin-bottom: 8px;
+        }
+        /* 入库类型选择器 */
+        .upload-type-select {
+            width: 100%;
+            height: 38px;
+            border-radius: 8px;
+            padding: 0 12px;
+            font-size: 13px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            background: rgba(13, 8, 32, 0.7);
+            color: #f0e6ff;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .upload-type-select:hover { border-color: #ec4899; }
+        .upload-type-select option { background: #1a0f3a; color: #f0e6ff; }
+        /* 知识库支持方法标签 */
+        .support-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            background: rgba(168, 85, 247, 0.3);
+            color: #c4b5fd;
+            margin-left: 6px;
+        }
+
+        /* ========== 主聊天区 ========== */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .chat-header {
+            height: 64px;
+            border-bottom: 1px solid rgba(236, 72, 153, 0.25);
+            background: rgba(26, 15, 58, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 20px;
+            position: relative;
+        }
+        .chat-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.6), rgba(139, 92, 246, 0.6), transparent);
+        }
+        .chat-title {
+            font-size: 17px;
+            font-weight: 700;
+            flex: 1;
+            color: #f0e6ff;
+            text-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+        }
+        .header-select {
+            height: 38px;
+            padding: 0 14px;
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            border-radius: 10px;
+            font-size: 13px;
+            outline: none;
+            background: rgba(13, 8, 32, 0.8);
+            color: #f0e6ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .header-select:hover { border-color: #ec4899; box-shadow: 0 0 12px rgba(236, 72, 153, 0.3); }
+        .header-select option { background: #1a0f3a; color: #f0e6ff; }
+        .mode-switch {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: rgba(13, 8, 32, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+        }
+        .mode-item {
+            padding: 7px 16px;
+            border-radius: 9px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #a78bfa;
+            transition: all 0.3s;
+        }
+        .mode-item.active {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(236, 72, 153, 0.5);
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 消息区 */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .message-empty {
+            margin: auto;
+            text-align: center;
+            color: #c4b5fd;
+        }
+        .message-empty h2 {
+            font-size: 34px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #f0abfc, #ec4899, #a855f7, #6366f1, #f0abfc);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: textShine 4s linear infinite;
+            letter-spacing: 2px;
+        }
+        .message-empty p {
+            color: #a78bfa;
+            font-size: 14px;
+        }
+        .message-empty::before {
+            content: '✧･ﾟ: *✧･ﾟ:*';
+            display: block;
+            font-size: 18px;
+            color: #ec4899;
+            margin-bottom: 16px;
+            opacity: 0.7;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .message-item {
+            display: flex;
+            gap: 12px;
+            max-width: 100%;
+            animation: msgIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(15px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .message-item.user { flex-direction: row-reverse; }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            position: relative;
+        }
+        .avatar.ai {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2);
+            animation: avatarPulse 2.5s ease-in-out infinite;
+        }
+        .avatar.ai::after {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            border-radius: 50%;
+            border: 1px solid rgba(236, 72, 153, 0.5);
+            animation: avatarRing 2.5s ease-out infinite;
+        }
+        @keyframes avatarPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(236, 72, 153, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(236, 72, 153, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.3); }
+        }
+        @keyframes avatarRing {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+        .avatar.user {
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            box-shadow: 0 0 18px rgba(59, 130, 246, 0.5);
+        }
+
+        .message-bubble {
+            max-width: 75%;
+            padding: 13px 17px;
+            border-radius: 14px;
+            line-height: 1.65;
+            font-size: 14px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            position: relative;
+        }
+        .message-item.ai .message-bubble {
+            background: rgba(26, 15, 58, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            border-top-left-radius: 4px;
+            color: #f0e6ff;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+        }
+        .message-item.ai .message-bubble::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 14px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.5), transparent, rgba(139, 92, 246, 0.5));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .message-item.user .message-bubble {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            border-top-right-radius: 4px;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+
+        /* 加载动画 */
+        .message-loading {
+            display: flex;
+            gap: 5px;
+            padding: 4px 0;
+        }
+        .message-loading span {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            animation: bounce 1.4s infinite ease-in-out both;
+            box-shadow: 0 0 8px rgba(236, 72, 153, 0.6);
+        }
+        .message-loading span:nth-child(1) { animation-delay: -0.32s; }
+        .message-loading span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0) rotate(0deg); opacity: 0.5; }
+            40% { transform: scale(1) rotate(180deg); opacity: 1; }
+        }
+
+        /* 输入区 */
+        .chat-input-area {
+            padding: 20px 20% 30px;
+            background: linear-gradient(180deg, transparent 0%, rgba(13, 8, 32, 0.7) 100%);
+            position: relative;
+        }
+        .chat-input-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20%;
+            right: 20%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.5), transparent);
+        }
+        .input-toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            border-radius: 10px;
+            font-size: 13px;
+            cursor: pointer;
+            background: rgba(26, 15, 58, 0.5);
+            color: #c4b5fd;
+            transition: all 0.3s;
+        }
+        .toolbar-btn:hover {
+            color: #fff;
+            border-color: #ec4899;
+            box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .advance-panel {
+            width: 100%;
+            border: 1px solid rgba(236, 72, 153, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: none;
+            background: rgba(13, 8, 32, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            animation: panelIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.2);
+        }
+        @keyframes panelIn {
+            from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .advance-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .advance-row:last-child { margin-bottom: 0; }
+        .advance-input {
+            flex: 1;
+            height: 36px;
+            border-radius: 8px;
+            padding: 0 12px;
+            font-size: 13px;
+        }
+        /* 预检索方法多选 chip 样式 */
+        .pre-methods-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+        }
+        .pre-method-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            background: rgba(30, 20, 60, 0.5);
+            font-size: 12px;
+            color: #c4b8e0;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            user-select: none;
+        }
+        .pre-method-chip:hover {
+            border-color: rgba(236, 72, 153, 0.6);
+            background: rgba(60, 30, 90, 0.6);
+            transform: translateY(-1px);
+        }
+        .pre-method-chip input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: #ec4899;
+            cursor: pointer;
+            margin: 0;
+        }
+        .pre-method-chip:has(input:checked) {
+            border-color: #ec4899;
+            background: rgba(236, 72, 153, 0.15);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(236, 72, 153, 0.3);
+        }
+
+        .input-box-wrapper {
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            border-radius: 18px;
+            padding: 13px 17px;
+            background: rgba(26, 15, 58, 0.75);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            transition: all 0.3s;
+            position: relative;
+        }
+        .input-box-wrapper:focus-within {
+            border-color: #ec4899;
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 0 30px rgba(236, 72, 153, 0.3);
+        }
+        #user_input {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 15px;
+            line-height: 1.5;
+            max-height: 200px;
+            min-height: 24px;
+            background: transparent;
+            color: #f0e6ff;
+        }
+        #user_input::placeholder { color: #7c6f9e; }
+        .input-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.5);
+            font-size: 16px;
+            position: relative;
+        }
+        .send-btn::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            opacity: 0;
+            z-index: -1;
+            filter: blur(8px);
+            transition: opacity 0.3s;
+        }
+        .send-btn:hover {
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 0 30px rgba(236, 72, 153, 0.8);
+        }
+        .send-btn:hover::before { opacity: 0.8; }
+        .send-btn:disabled {
+            background: rgba(100, 80, 130, 0.4);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .send-btn:disabled::before { opacity: 0; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 13px 26px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 9999;
+            animation: toastIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+        }
+        .toast.error {
+            background: rgba(127, 29, 29, 0.85);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.6);
+            box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+        }
+        .toast.success {
+            background: rgba(20, 83, 45, 0.85);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.6);
+            box-shadow: 0 8px 32px rgba(34, 197, 94, 0.3);
+        }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.9); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #ec4899, #a855f7);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #f472b6, #c084fc);
+            box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+        }
+
+        @media (max-width: 1024px) {
+            .chat-messages, .chat-input-area { padding-left: 10%; padding-right: 10%; }
+        }
+    </style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+<canvas id="sakura"></canvas>
+<div id="cursor-glow"></div>
+<div class="app-container">
+    <!-- 左侧边栏 -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">RAG 知识库</div>
+            <button class="new-chat-btn" id="new_chat_btn" onclick="createNewChat()">
+                <span>+</span> 开启新对话
+            </button>
+        </div>
+
+        <div class="sidebar-tabs">
+            <div class="tab-item active" data-tab="chat" onclick="switchTab('chat')">对话</div>
+            <div class="tab-item" data-tab="knowledge" onclick="switchTab('knowledge')">知识库</div>
+        </div>
+
+        <div class="sidebar-content" id="chat_panel">
+            <div id="conversation_list"></div>
+        </div>
+
+        <div class="sidebar-content" id="knowledge_panel" style="display: none;">
+            <div class="kb-upload-group">
+                <input type="text" class="kb-input" id="kb_name_input" placeholder="输入知识库名称">
+                <select class="upload-type-select" id="upload_type_select">
+                    <option value="normal">📄 普通向量入库</option>
+                    <option value="parent_child">📂 父子文档入库</option>
+                    <option value="preview_question">❓ 预览问题索引</option>
+                    <option value="summary">📝 摘要多向量入库</option>
+                    <option value="enrich">📊 文档字段增强</option>
+                    <option value="hybrid_search">🌐 混合检索入库</option>
+                </select>
+                <input type="file" id="file_upload" style="display: none;" accept=".txt,.md,.pdf,.docx,.csv,.json,.xml" onchange="uploadFile()">
+                <button class="upload-btn" id="file_upload_btn" onclick="document.getElementById('file_upload').click()">上传文件入库</button>
+                <textarea class="text-upload-area" id="text_upload_input" placeholder="输入文本内容"></textarea>
+                <button class="upload-btn" id="text_upload_btn" style="background: linear-gradient(135deg, #06b6d4, #3b82f6); box-shadow: 0 4px 16px rgba(6, 182, 212, 0.4);" onclick="uploadText()">文本入库</button>
+            </div>
+            <div id="kb_list"></div>
+        </div>
+    </div>
+
+    <!-- 主聊天区 -->
+    <div class="main-chat">
+        <div class="chat-header">
+            <div class="chat-title" id="current_chat_title">新对话</div>
+            <div class="mode-switch">
+                <div class="mode-item active">快速模式</div>
+                <div class="mode-item">专家模式</div>
+            </div>
+            <select class="header-select" id="kb_select">
+                <option value="">选择知识库</option>
+            </select>
+        </div>
+
+        <div class="chat-messages" id="chat_messages">
+            <div class="message-empty" id="empty_tip">
+                <h2>开始你的智能问答</h2>
+                <p>选择知识库，输入问题，获取精准答案</p>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <div class="input-toolbar">
+                <label class="toolbar-btn">
+                    <span>📎</span> 附件
+                    <input type="file" style="display: none;">
+                </label>
+                <div class="toolbar-btn" id="advance_toggle_btn" onclick="toggleAdvancePanel()">
+                    <span>⚙️</span> 高级参数
+                </div>
+                <div class="toolbar-btn">
+                    <span>🧠</span> 深度思考
+                </div>
+            </div>
+            <div class="advance-panel" id="advance_panel">
+                <div class="advance-row">
+                    <input class="advance-input" id="custom_collection_input" placeholder="自定义集合名称（可选）">
+                    <input class="advance-input" id="embedding_text_input" placeholder="附加向量化文本（可选）">
+                </div>
+                <div class="advance-row">
+                    <select class="advance-input" id="compress_type_input">
+                        <option value="">自动选择压缩类型</option>
+                        <option value="extract">🔍 LLM提取压缩</option>
+                        <option value="llm_filter">🧠 LLM过滤压缩</option>
+                        <option value="emb_filter">📊 向量相似度过滤</option>
+                        <option value="pipeline">⚙️ 完整混合流水线</option>
+                    </select>
+                </div>
+                <div class="advance-row" style="flex-direction: column; align-items: flex-start;">
+                    <div style="font-size: 13px; color: #7c6f9e; margin-bottom: 6px;">🔄 重排策略（可多选，默认全部启用）</div>
+                    <div class="pre-methods-grid">
+                        <label class="pre-method-chip" title="RRF互逆排序融合，适用于多路检索结果融合">
+                            <input type="checkbox" id="enable_rrf" checked> <span>🔢 RRF重排</span>
+                        </label>
+                        <label class="pre-method-chip" title="模型语义重排，提升检索结果相关性">
+                            <input type="checkbox" id="enable_model_rerank" checked> <span>🧠 模型重排</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="advance-row" style="flex-direction: column; align-items: flex-start;">
+                    <div style="font-size: 13px; color: #7c6f9e; margin-bottom: 6px;">⚙️ 预检索策略（可多选，不选则由AI自动决策）</div>
+                    <div class="pre-methods-grid" id="pre_methods_grid">
+                        <label class="pre-method-chip" title="基础向量检索，适用于简单直接的问题查询">
+                            <input type="checkbox" value="normal"> <span>📄 普通检索</span>
+                        </label>
+                        <label class="pre-method-chip" title="宽泛开放式科普、多视角行业综合问题，扩充检索词扩大召回范围">
+                            <input type="checkbox" value="multi_query"> <span>🔄 多路查询扩展</span>
+                        </label>
+                        <label class="pre-method-chip" title="复合多问题提问，一句话包含多个独立子问题，拆分后单独检索">
+                            <input type="checkbox" value="decomposition"> <span>🔀 问题分解检索</span>
+                        </label>
+                        <label class="pre-method-chip" title="需要完整长原文上下文、长篇资料细节推导、深度原文分析">
+                            <input type="checkbox" value="parent_child"> <span>📂 父子文档检索</span>
+                        </label>
+                        <label class="pre-method-chip" title="带有时间、分类、数值、标签等限定筛选条件的精准查询">
+                            <input type="checkbox" value="self_query"> <span>🔍 自查询元数据</span>
+                        </label>
+                        <label class="pre-method-chip" title="问答知识库、需要匹配同类衍生问题的场景">
+                            <input type="checkbox" value="preview_question"> <span>❓ 预览问题索引</span>
+                        </label>
+                        <label class="pre-method-chip" title="需要概括、总结长文档内容类提问">
+                            <input type="checkbox" value="summary"> <span>📝 摘要多向量</span>
+                        </label>
+                        <label class="pre-method-chip" title="需要补全结构化业务字段、表单信息类提问">
+                            <input type="checkbox" value="enrich"> <span>📊 文档字段增强</span>
+                        </label>
+                        <label class="pre-method-chip" title="包含专业专有名词、关键词权重要求高的检索需求">
+                            <input type="checkbox" value="hybrid_search"> <span>🌐 BM25+向量混合</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="input-box-wrapper">
+                <textarea id="user_input" placeholder="给 AI 发送消息" rows="1"></textarea>
+                <div class="input-bottom">
+                    <span style="font-size: 12px; color: #7c6f9e;">Enter 发送，Shift+Enter 换行</span>
+                    <button class="send-btn" id="send_btn" onclick="sendMessage()">↑</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ====================== 全局状态 ======================
+    let currentConversationId = null;
+    let currentKbName = "";
+    let isSubmitting = false;
+
+    // ====================== 星空背景动画 ======================
+    (function initStarfield() {
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let stars = [];
+        let shootingStars = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const starCount = Math.floor((canvas.width * canvas.height) / 7000);
+            stars = [];
+            for (let i = 0; i < starCount; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    r: Math.random() * 1.4 + 0.3,
+                    o: Math.random() * 0.8 + 0.2,
+                    twinkleSpeed: Math.random() * 0.025 + 0.005,
+                    twinklePhase: Math.random() * Math.PI * 2,
+                    color: Math.random() > 0.8 ? '#ec4899' : (Math.random() > 0.6 ? '#a855f7' : '#ffffff')
+                });
+            }
+        }
+
+        function spawnShootingStar() {
+            if (Math.random() < 0.005 && shootingStars.length < 2) {
+                shootingStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height * 0.5,
+                    len: Math.random() * 100 + 50,
+                    speed: Math.random() * 8 + 5,
+                    angle: Math.PI / 4 + (Math.random() - 0.5) * 0.4,
+                    life: 1.0,
+                    color: Math.random() > 0.5 ? '236, 72, 153' : '168, 85, 247'
+                });
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let s of stars) {
+                s.twinklePhase += s.twinkleSpeed;
+                const opacity = s.o * (0.5 + 0.5 * Math.sin(s.twinklePhase));
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = s.color;
+                ctx.globalAlpha = opacity;
+                ctx.fill();
+                if (s.r > 1) {
+                    ctx.globalAlpha = opacity * 0.25;
+                    ctx.arc(s.x, s.y, s.r * 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1;
+
+            spawnShootingStar();
+            for (let i = shootingStars.length - 1; i >= 0; i--) {
+                const m = shootingStars[i];
+                const tailX = m.x - Math.cos(m.angle) * m.len;
+                const tailY = m.y - Math.sin(m.angle) * m.len;
+                const grad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
+                grad.addColorStop(0, 'rgba(' + m.color + ', ' + m.life + ')');
+                grad.addColorStop(1, 'rgba(' + m.color + ', 0)');
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(m.x, m.y);
+                ctx.lineTo(tailX, tailY);
+                ctx.stroke();
+                // 头部光点
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + m.color + ', ' + m.life + ')';
+                ctx.fill();
+                m.x += Math.cos(m.angle) * m.speed;
+                m.y += Math.sin(m.angle) * m.speed;
+                m.life -= 0.012;
+                if (m.life <= 0 || m.x > canvas.width || m.y > canvas.height) {
+                    shootingStars.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        draw();
+    })();
+
+    // ====================== 樱花飘落动画 ======================
+    (function initSakura() {
+        const canvas = document.getElementById('sakura');
+        const ctx = canvas.getContext('2d');
+        let petals = [];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function createPetal() {
+            return {
+                x: Math.random() * canvas.width,
+                y: -20,
+                size: Math.random() * 8 + 6,
+                speedY: Math.random() * 1.2 + 0.5,
+                speedX: (Math.random() - 0.5) * 0.8,
+                sway: Math.random() * 2,
+                swayPhase: Math.random() * Math.PI * 2,
+                swaySpeed: Math.random() * 0.03 + 0.01,
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.04,
+                opacity: Math.random() * 0.6 + 0.4,
+                color: Math.random() > 0.5 ? '255, 182, 193' : '255, 192, 203'
+            };
+        }
+
+        function drawPetal(p) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.globalAlpha = p.opacity;
+            // 画一片樱花瓣（椭圆变形）
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size * 0.5, p.size, 0, 0, Math.PI * 2);
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
+            grad.addColorStop(0, 'rgba(' + p.color + ', 0.9)');
+            grad.addColorStop(1, 'rgba(' + p.color + ', 0.3)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+            // 中心凹槽（樱花特征）
+            ctx.beginPath();
+            ctx.ellipse(0, -p.size * 0.6, p.size * 0.15, p.size * 0.25, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + p.color + ', 0.4)';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 控制花瓣数量
+            if (petals.length < 35 && Math.random() < 0.15) {
+                petals.push(createPetal());
+            }
+            for (let i = petals.length - 1; i >= 0; i--) {
+                const p = petals[i];
+                p.swayPhase += p.swaySpeed;
+                p.x += p.speedX + Math.sin(p.swayPhase) * p.sway;
+                p.y += p.speedY;
+                p.rotation += p.rotSpeed;
+                drawPetal(p);
+                if (p.y > canvas.height + 20) {
+                    petals.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        animate();
+    })();
+
+    // ====================== 鼠标跟随光晕 ======================
+    (function initCursorGlow() {
+        const glow = document.getElementById('cursor-glow');
+        let targetX = window.innerWidth / 2;
+        let targetY = window.innerHeight / 2;
+        let curX = targetX;
+        let curY = targetY;
+
+        document.addEventListener('mousemove', function(e) {
+            targetX = e.clientX;
+            targetY = e.clientY;
+            glow.style.opacity = '1';
+        });
+        document.addEventListener('mouseleave', function() {
+            glow.style.opacity = '0';
+        });
+
+        function follow() {
+            curX += (targetX - curX) * 0.15;
+            curY += (targetY - curY) * 0.15;
+            glow.style.left = curX + 'px';
+            glow.style.top = curY + 'px';
+            requestAnimationFrame(follow);
+        }
+        follow();
+    })();
+
+    // ====================== 工具函数 ======================
+    function showToast(msg, type) {
+        type = type || 'error';
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+        toast.innerText = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.transition = 'opacity 0.3s, transform 0.3s';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(-20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 2800);
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('chat_messages');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ====================== 页面初始化 ======================
+    window.onload = function() {
+        loadConversationList();
+        loadKnowledgeList();
+        document.getElementById('user_input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    };
+
+    // ====================== Tab 切换 ======================
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-item').forEach(item => item.classList.remove('active'));
+        document.querySelector('[data-tab=' + tab + ']').classList.add('active');
+        document.getElementById('chat_panel').style.display = tab === 'chat' ? 'block' : 'none';
+        document.getElementById('knowledge_panel').style.display = tab === 'knowledge' ? 'block' : 'none';
+    }
+
+    function toggleAdvancePanel() {
+        const panel = document.getElementById("advance_panel");
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+    }
+
+    // ====================== 会话列表 ======================
+    function loadConversationList() {
+        fetch('/api/get_conversation_list')
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200 && res.data) {
+                    let html = '';
+                    res.data.forEach(item => {
+                        const title = item.conversation_title || '新对话';
+                        html += '<div class="list-item' + (item.conversation_id === currentConversationId ? ' active' : '') + '"'
+                            + ' onclick="switchConversation(\'' + item.conversation_id + '\', \'' + escapeHtml(title) + '\')">'
+                            + '<span class="item-text">' + escapeHtml(title) + '</span>'
+                            + '<span class="delete-btn" onclick="event.stopPropagation(); deleteConversation(\'' + item.conversation_id + '\')">删除</span>'
+                            + '</div>';
+                    });
+                    document.getElementById('conversation_list').innerHTML = html || '<div style="padding:16px;color:#7c6f9e;text-align:center;">暂无对话</div>';
+                }
+            })
+            .catch(err => showToast('加载会话列表失败: ' + err.message));
+    }
+
+    // 入库类型名称映射
+    const uploadTypeNameMap = {
+        "normal": "普通",
+        "parent_child": "父子",
+        "preview_question": "预览",
+        "summary": "摘要",
+        "enrich": "增强",
+        "hybrid_search": "混合"
+    };
+    
+    // ====================== 知识库列表 ======================
+    function loadKnowledgeList() {
+        fetch('/api/get_knowledge_list')
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200 && res.data) {
+                    let kbHtml = '';
+                    res.data.forEach(item => {
+                        let supportTags = '';
+                        if (item.support_methods) {
+                            const methods = item.support_methods.split(',');
+                            methods.forEach(m => {
+                                if (uploadTypeNameMap[m]) {
+                                    supportTags += '<span class="support-tag">' + uploadTypeNameMap[m] + '</span>';
+                                }
+                            });
+                        }
+                        kbHtml += '<div class="list-item">'
+                            + '<span class="item-text">' + escapeHtml(item.display_name) + supportTags + '</span>'
+                            + '<span class="delete-btn" onclick="event.stopPropagation(); deleteKb(\'' + escapeHtml(item.display_name) + '\')">删除</span>'
+                            + '</div>';
+                    });
+                    document.getElementById('kb_list').innerHTML = kbHtml || '<div style="padding:16px;color:#7c6f9e;text-align:center;">暂无知识库</div>';
+
+                    let selectHtml = '<option value="">选择知识库</option>';
+                    res.data.forEach(item => {
+                        selectHtml += '<option value="' + escapeHtml(item.display_name) + '">' + escapeHtml(item.display_name) + '</option>';
+                    });
+                    document.getElementById('kb_select').innerHTML = selectHtml;
+                }
+            })
+            .catch(err => showToast('加载知识库列表失败: ' + err.message));
+    }
+
+    // ====================== 新建对话 ======================
+    function createNewChat() {
+        if (isSubmitting) return;
+        const kb = document.getElementById('kb_select').value;
+        if (!kb) {
+            showToast('请先选择知识库');
+            return;
+        }
+
+        isSubmitting = true;
+        const btn = document.getElementById('new_chat_btn');
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('kb_display_name', kb);
+        fetch('/api/create_conversation', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    currentConversationId = res.data.conversation_id;
+                    currentKbName = kb;
+                    document.getElementById('current_chat_title').innerText = '新对话';
+                    document.getElementById('chat_messages').innerHTML =
+                        '<div class="message-empty" id="empty_tip">'
+                        + '<h2>开始你的智能问答</h2>'
+                        + '<p>基于「' + escapeHtml(kb) + '」知识库为你解答</p>'
+                        + '</div>';
+                    loadConversationList();
+                    showToast('会话创建成功', 'success');
+                } else {
+                    showToast(res.message || '创建失败');
+                }
+            })
+            .catch(err => showToast('创建会话失败: ' + err.message))
+            .finally(() => {
+                isSubmitting = false;
+                btn.disabled = false;
+            });
+    }
+
+    // ====================== 切换会话 ======================
+    function switchConversation(convId, title) {
+        currentConversationId = convId;
+        currentKbName = '';
+        document.getElementById('current_chat_title').innerText = title;
+        loadConversationList();
+
+        fetch('/api/get_conversation_history?conversation_id=' + encodeURIComponent(convId))
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    renderMessages(res.data);
+                }
+            })
+            .catch(err => showToast('加载历史消息失败: ' + err.message));
+    }
+
+    // ====================== 渲染消息 ======================
+    function renderMessages(msgList) {
+        const container = document.getElementById('chat_messages');
+        if (!msgList || msgList.length === 0) {
+            container.innerHTML = '<div class="message-empty"><h2>开始你的智能问答</h2></div>';
+            return;
+        }
+        let html = '';
+        msgList.forEach(msg => {
+            const role = msg.role === 'user' ? 'user' : 'ai';
+            const avatarText = role === 'user' ? '我' : 'AI';
+            html += '<div class="message-item ' + role + '">'
+                + '<div class="avatar ' + role + '">' + avatarText + '</div>'
+                + '<div class="message-bubble">' + escapeHtml(msg.content) + '</div>'
+                + '</div>';
+        });
+        container.innerHTML = html;
+        scrollToBottom();
+    }
+
+    // ====================== 发送消息 ======================
+    async function sendMessage() {
+        if (isSubmitting) return;
+
+        const input = document.getElementById('user_input');
+        const text = input.value.trim();
+        if (!text) return;
+        if (!currentConversationId) {
+            showToast('请先新建或选择一个对话');
+            return;
+        }
+
+        const customCollection = document.getElementById("custom_collection_input").value.trim();
+        const embeddingText = document.getElementById("embedding_text_input").value.trim();
+        const compressType = document.getElementById("compress_type_input").value.trim();
+
+        // 收集用户选中的预检索方法
+        const preMethodCheckboxes = document.querySelectorAll('#pre_methods_grid input[type="checkbox"]:checked');
+        const selectedPreMethods = Array.from(preMethodCheckboxes).map(cb => cb.value);
+
+        // 收集用户选中的重排策略
+        const enableRrf = document.getElementById("enable_rrf").checked ? "true" : "false";
+        const enableModelRerank = document.getElementById("enable_model_rerank").checked ? "true" : "false";
+
+        const headerKb = document.getElementById('kb_select').value;
+        const defaultKb = headerKb || currentKbName;
+        const targetCollection = customCollection ? customCollection : defaultKb;
+
+        if (!targetCollection) {
+            showToast('未指定知识库，请选择知识库或填写自定义集合名称');
+            return;
+        }
+
+        isSubmitting = true;
+        const sendBtn = document.getElementById('send_btn');
+        sendBtn.disabled = true;
+
+        const container = document.getElementById('chat_messages');
+        const emptyTip = document.getElementById('empty_tip');
+        if (emptyTip) emptyTip.remove();
+
+        container.innerHTML += '<div class="message-item user">'
+            + '<div class="avatar user">我</div>'
+            + '<div class="message-bubble">' + escapeHtml(text) + '</div>'
+            + '</div>';
+
+        container.innerHTML += '<div class="message-item ai" id="loading_msg">'
+            + '<div class="avatar ai">AI</div>'
+            + '<div class="message-bubble"><div class="message-loading"><span></span><span></span><span></span></div></div>'
+            + '</div>';
+
+        input.value = '';
+        scrollToBottom();
+
+        try {
+            if (embeddingText) {
+                const formUpload = new FormData();
+                formUpload.append("collection_name", targetCollection);
+                formUpload.append("text", embeddingText);
+                const uploadRes = await fetch('/api/upload_text', {method: "POST", body: formUpload});
+                const uploadJson = await uploadRes.json();
+                if (uploadJson.code !== 200) {
+                    showToast("附加文本入库失败：" + uploadJson.message);
+                    const lm = document.getElementById('loading_msg');
+                    if (lm) lm.remove();
+                    return;
+                }
+                loadKnowledgeList();
+            }
+
+            const formChat = new FormData();
+            formChat.append('user_query', text);
+            formChat.append('collection_name', targetCollection);
+            formChat.append('session_id', currentConversationId);
+            if (embeddingText) formChat.append("embedding_text", embeddingText);
+            if (compressType) formChat.append("custom_compress_type", compressType);
+            // 传入选中的预检索方法（逗号分隔字符串）
+            if (selectedPreMethods.length > 0) {
+                formChat.append("pre_retrieval_methods", selectedPreMethods.join(','));
+            }
+            // 传递重排策略参数
+            formChat.append("enable_rrf", enableRrf);
+            formChat.append("enable_model_rerank", enableModelRerank);
+
+            const res = await fetch('/api/rag_chat', {method: 'POST', body: formChat});
+            const resJson = await res.json();
+
+            const loadingEl = document.getElementById('loading_msg');
+            if (loadingEl) loadingEl.remove();
+
+            if (resJson.code === 200) {
+                container.innerHTML += '<div class="message-item ai">'
+                    + '<div class="avatar ai">AI</div>'
+                    + '<div class="message-bubble">' + escapeHtml(resJson.data.answer) + '</div>'
+                    + '</div>';
+                scrollToBottom();
+                loadConversationList();
+            } else {
+                showToast(resJson.message || '问答失败');
+            }
+        } catch (err) {
+            const loadingEl = document.getElementById('loading_msg');
+            if (loadingEl) loadingEl.remove();
+            showToast('问答请求失败: ' + err.message);
+        } finally {
+            isSubmitting = false;
+            sendBtn.disabled = false;
+        }
+    }
+
+    // ====================== 删除会话 ======================
+    function deleteConversation(convId) {
+        if (!confirm('确定删除该会话吗？删除后无法恢复')) return;
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        const formData = new FormData();
+        formData.append('conversation_id', convId);
+        fetch('/api/conversation_delete', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    if (currentConversationId === convId) {
+                        currentConversationId = null;
+                        document.getElementById('chat_messages').innerHTML = '<div class="message-empty"><h2>开始你的智能问答</h2></div>';
+                    }
+                    loadConversationList();
+                    showToast('会话删除成功', 'success');
+                } else {
+                    showToast(res.message || '删除失败');
+                }
+            })
+            .catch(err => showToast('删除会话失败: ' + err.message))
+            .finally(() => { isSubmitting = false; });
+    }
+
+    // ====================== 上传文件入库 ======================
+    function uploadFile() {
+        const kbName = document.getElementById('kb_name_input').value.trim();
+        const fileInput = document.getElementById('file_upload');
+        const file = fileInput.files[0];
+        const uploadType = document.getElementById('upload_type_select').value;
+        if (!kbName) { showToast('请输入知识库名称'); return; }
+        if (!file) { return; }
+
+        if (isSubmitting) return;
+        isSubmitting = true;
+        const btn = document.getElementById('file_upload_btn');
+        btn.disabled = true;
+        const oldText = btn.innerText;
+        btn.innerText = '上传中...';
+
+        const formData = new FormData();
+        formData.append('collection_name', kbName);
+        formData.append('file', file);
+        formData.append('upload_type', uploadType);
+
+        fetch('/api/upload_file', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    showToast(res.message || '上传成功', 'success');
+                    loadKnowledgeList();
+                    fileInput.value = '';
+                } else {
+                    showToast(res.message || '上传失败');
+                }
+            })
+            .catch(err => showToast('上传失败: ' + err.message))
+            .finally(() => {
+                isSubmitting = false;
+                btn.disabled = false;
+                btn.innerText = oldText;
+            });
+    }
+
+    // ====================== 文本入库 ======================
+    function uploadText() {
+        const kbName = document.getElementById('kb_name_input').value.trim();
+        const text = document.getElementById('text_upload_input').value.trim();
+        const uploadType = document.getElementById('upload_type_select').value;
+        if (!kbName) { showToast('请输入知识库名称'); return; }
+        if (!text) { showToast('请输入文本内容'); return; }
+
+        if (isSubmitting) return;
+        isSubmitting = true;
+        const btn = document.getElementById('text_upload_btn');
+        btn.disabled = true;
+        const oldText = btn.innerText;
+        btn.innerText = '入库中...';
+
+        const formData = new FormData();
+        formData.append('collection_name', kbName);
+        formData.append('text', text);
+        formData.append('upload_type', uploadType);
+
+        fetch('/api/upload_text', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    showToast(res.message || '入库成功', 'success');
+                    loadKnowledgeList();
+                    document.getElementById('text_upload_input').value = '';
+                } else {
+                    showToast(res.message || '入库失败');
+                }
+            })
+            .catch(err => showToast('入库失败: ' + err.message))
+            .finally(() => {
+                isSubmitting = false;
+                btn.disabled = false;
+                btn.innerText = oldText;
+            });
+    }
+
+    // ====================== 删除知识库 ======================
+    function deleteKb(name) {
+        if (!confirm('确定删除该知识库吗？删除后无法恢复！')) return;
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        const formData = new FormData();
+        formData.append('collection_name', name);
+        fetch('/api/collection_delete', {method: 'POST', body: formData})
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    showToast('知识库删除成功', 'success');
+                    loadKnowledgeList();
+                } else {
+                    showToast(res.message || '删除失败');
+                }
+            })
+            .catch(err => showToast('删除失败: ' + err.message))
+            .finally(() => { isSubmitting = false; });
+    }
+</script>
+</body>
+</html>
